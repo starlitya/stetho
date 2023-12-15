@@ -43,7 +43,7 @@ public class ChromeDiscoveryHandler implements HttpHandler {
   /**
    * Latest version of the WebKit Inspector UI that we've tested again (ideally).
    */
-  private static final String WEBKIT_REV = "@188492";
+  private static final String WEBKIT_REV = "@cfede9db1d154de0468cb0538479f34c0755a0f4";
   private static final String WEBKIT_VERSION = "537.36 (" + WEBKIT_REV + ")";
 
   private static final String USER_AGENT = "Stetho";
@@ -51,7 +51,7 @@ public class ChromeDiscoveryHandler implements HttpHandler {
   /**
    * Structured version of the WebKit Inspector protocol that we understand.
    */
-  private static final String PROTOCOL_VERSION = "1.1";
+  private static final String PROTOCOL_VERSION = "1.3";
 
   private final Context mContext;
   private final String mInspectorPath;
@@ -124,7 +124,7 @@ public class ChromeDiscoveryHandler implements HttpHandler {
           .authority("chrome-devtools-frontend.appspot.com")
           .appendEncodedPath("serve_rev")
           .appendEncodedPath(WEBKIT_REV)
-          .appendEncodedPath("devtools.html")
+          .appendEncodedPath("inspector.html")
           .appendQueryParameter("ws", mInspectorPath)
           .build();
       page.put("devtoolsFrontendUrl", chromeFrontendUrl.toString());
