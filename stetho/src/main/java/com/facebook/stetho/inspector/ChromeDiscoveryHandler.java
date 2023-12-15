@@ -36,6 +36,7 @@ public class ChromeDiscoveryHandler implements HttpHandler {
   private static final String PAGE_ID = "1";
 
   private static final String PATH_PAGE_LIST = "/json";
+  private static final String PATH_PAGE_LIST1 = "/json/list";
   private static final String PATH_VERSION = "/json/version";
   private static final String PATH_ACTIVATE = "/json/activate/" + PAGE_ID;
 
@@ -65,6 +66,7 @@ public class ChromeDiscoveryHandler implements HttpHandler {
 
   public void register(HandlerRegistry registry) {
     registry.register(new ExactPathMatcher(PATH_PAGE_LIST), this);
+    registry.register(new ExactPathMatcher(PATH_PAGE_LIST1), this);
     registry.register(new ExactPathMatcher(PATH_VERSION), this);
     registry.register(new ExactPathMatcher(PATH_ACTIVATE), this);
   }
@@ -75,7 +77,7 @@ public class ChromeDiscoveryHandler implements HttpHandler {
     try {
       if (PATH_VERSION.equals(path)) {
         handleVersion(response);
-      } else if (PATH_PAGE_LIST.equals(path)) {
+      } else if (PATH_PAGE_LIST.equals(path) || PATH_PAGE_LIST1.equals(path)) {
         handlePageList(response);
       } else if (PATH_ACTIVATE.equals(path)) {
         handleActivate(response);
