@@ -43,7 +43,7 @@ public class ChromeDiscoveryHandler implements HttpHandler {
   /**
    * Latest version of the WebKit Inspector UI that we've tested again (ideally).
    */
-  private static final String WEBKIT_REV = "@cfede9db1d154de0468cb0538479f34c0755a0f4";
+  private static final String WEBKIT_REV = "@81b36b9535e3e3b610a52df3da48cd81362ec860";
   private static final String WEBKIT_VERSION = "537.36 (" + WEBKIT_REV + ")";
 
   private static final String USER_AGENT = "Stetho";
