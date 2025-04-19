@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.text.TextUtils;
 import com.facebook.stetho.common.ProcessUtil;
 import com.facebook.stetho.server.http.ExactPathMatcher;
 import com.facebook.stetho.server.http.HandlerRegistry;
@@ -20,10 +21,13 @@ import com.facebook.stetho.server.SocketLike;
 import com.facebook.stetho.server.http.LightHttpBody;
 import com.facebook.stetho.server.http.LightHttpRequest;
 import com.facebook.stetho.server.http.LightHttpResponse;
+import com.facebook.stetho.common.LogRedirector;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -33,6 +37,7 @@ import javax.annotation.Nullable;
  * some context on how exactly to display and inspect what we have.
  */
 public class ChromeDiscoveryHandler implements HttpHandler {
+  private static final String TAG = "ChromeDiscoveryHandler";
   private static final String PAGE_ID = "1";
 
   private static final String PATH_PAGE_LIST = "/json";
@@ -52,9 +57,15 @@ public class ChromeDiscoveryHandler implements HttpHandler {
    * Structured version of the WebKit Inspector protocol that we understand.
    */
   private static final String PROTOCOL_VERSION = "1.3";
+  
+  // Pattern to extract Chrome version from User-Agent
+  private static final Pattern CHROME_PATTERN = Pattern.compile("Chrome/([0-9]+)\\.");
 
   private final Context mContext;
   private final String mInspectorPath;
+  
+  // Current client's Chrome version
+  private int mChromeVersion = 99;
 
   @Nullable private LightHttpBody mVersionResponse;
   @Nullable private LightHttpBody mPageListResponse;
@@ -74,6 +85,14 @@ public class ChromeDiscoveryHandler implements HttpHandler {
   @Override
   public boolean handleRequest(SocketLike socket, LightHttpRequest request, LightHttpResponse response) {
     String path = request.uri.getPath();
+    
+    // Extract Chrome version from User-Agent header
+    detectChromeVersionFromRequest(request);
+    
+    // Reset cached responses since we may need different responses for different Chrome versions
+    mVersionResponse = null;
+    mPageListResponse = null;
+    
     try {
       if (PATH_VERSION.equals(path)) {
         handleVersion(response);
@@ -92,6 +111,27 @@ public class ChromeDiscoveryHandler implements HttpHandler {
       response.body = LightHttpBody.create(e.toString() + "\n", "text/plain");
     }
     return true;
+  }
+  
+  /**
+   * Detect Chrome version from User-Agent header
+   */
+  private void detectChromeVersionFromRequest(LightHttpRequest request) {
+    String userAgent = request.getFirstHeaderValue("User-Agent");
+    if (!TextUtils.isEmpty(userAgent)) {
+      Matcher matcher = CHROME_PATTERN.matcher(userAgent);
+      if (matcher.find()) {
+        try {
+          mChromeVersion = Integer.parseInt(matcher.group(1));
+          LogRedirector.d(TAG, "Detected Chrome version: " + mChromeVersion);
+        } catch (NumberFormatException e) {
+          LogRedirector.w(TAG, "Failed to parse Chrome version from: " + userAgent);
+          mChromeVersion = 99;
+        }
+      } else {
+        mChromeVersion = 99;
+      }
+    }
   }
 
   private void handleVersion(LightHttpResponse response)
@@ -119,14 +159,29 @@ public class ChromeDiscoveryHandler implements HttpHandler {
       page.put("description", "");
 
       page.put("webSocketDebuggerUrl", "ws://" + mInspectorPath);
-      Uri chromeFrontendUrl = new Uri.Builder()
-          .scheme("http")
-          .authority("chrome-devtools-frontend.appspot.com")
-          .appendEncodedPath("serve_rev")
-          .appendEncodedPath(WEBKIT_REV)
-          .appendEncodedPath("inspector.html")
-          .appendQueryParameter("ws", mInspectorPath)
-          .build();
+      
+      Uri chromeFrontendUrl;
+      if (mChromeVersion > 0 && mChromeVersion <= 89) {
+        LogRedirector.d(TAG, "Using devtools.html for Chrome " + mChromeVersion);
+        chromeFrontendUrl = new Uri.Builder()
+                .scheme("http")
+                .authority("chrome-devtools-frontend.appspot.com")
+                .appendEncodedPath("serve_rev")
+                .appendEncodedPath("@188492")
+                .appendEncodedPath("devtools.html")
+                .appendQueryParameter("ws", mInspectorPath)
+                .build();
+      } else {
+        chromeFrontendUrl = new Uri.Builder()
+                .scheme("http")
+                .authority("chrome-devtools-frontend.appspot.com")
+                .appendEncodedPath("serve_rev")
+                .appendEncodedPath(WEBKIT_REV)
+                .appendEncodedPath("inspector.html")
+                .appendQueryParameter("ws", mInspectorPath)
+                .build();
+      }
+      
       page.put("devtoolsFrontendUrl", chromeFrontendUrl.toString());
 
       reply.put(page);
